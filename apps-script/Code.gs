@@ -12,7 +12,8 @@
  *  5) انسخ رابط الـ Web app وحطه هو والـ TOKEN في إعدادات التطبيق.
  */
 
-const TOKEN = 'CHANGE-ME-123';                         // ← غيّره
+const TOKEN = 'CHANGE-ME-123';                         // ← غيّره (نفس token في config.js)
+const ADMIN_PASSWORD = 'CHANGE-ME-ADMIN';              // ← كلمة سر الأدمن (نفس اللي بتفتح بيها الإعدادات)
 const ROOT_FOLDER_NAME = 'متابعة التجارب - ملفات العملاء'; // اسم الفولدر الرئيسي على الدرايف
 const MAX_DOC_IMAGES_PER_VISIT = 6;                    // عدد الصور المعروضة داخل ملف Docs لكل زيارة
 
@@ -65,6 +66,8 @@ function handle_(action, p) {
     case 'uploadPhoto': return uploadPhoto_(p.photo);
     case 'rebuildDocs': (p.clientIds || []).forEach(id => buildDoc_(id)); return { done: (p.clientIds || []).length };
     case 'pull': return pull_(p.since || '');
+    case 'getConfig': return getConfig_();
+    case 'setConfig': return setConfig_(p.config, p.adminPassword);
     default: throw new Error('عملية غير معروفة: ' + action);
   }
 }
@@ -136,11 +139,21 @@ function uploadPhoto_(ph) {
   return { url: file.getUrl() };
 }
 
+// إعدادات مشتركة لكل الأجهزة (الأدمن بس يقدر يغيرها)
+function getConfig_() { const raw = PropertiesService.getScriptProperties().getProperty('APP_CONFIG'); return raw ? JSON.parse(raw) : null; }
+function setConfig_(cfg, adminPassword) {
+  if (ADMIN_PASSWORD === 'CHANGE-ME-ADMIN' || adminPassword !== ADMIN_PASSWORD) throw new Error('كلمة سر الأدمن غير صحيحة (راجع ADMIN_PASSWORD في Apps Script)');
+  const c = Object.assign({}, cfg || {}, { updatedAt: new Date().toISOString() });
+  PropertiesService.getScriptProperties().setProperty('APP_CONFIG', JSON.stringify(c));
+  return { updatedAt: c.updatedAt };
+}
+
 function pull_(since) {
   const serverTime = new Date().toISOString();
   const pick = (rows) => rows.filter(r => !since || String(r.syncedAt) > since).map(r => { const o = Object.assign({}, r); delete o.folderId; delete o.docId; return o; });
   return {
     serverTime,
+    config: getConfig_(),
     clients: pick(readAll_(sheet_('العملاء', CLIENT_COLS), CLIENT_COLS)),
     visits: pick(readAll_(sheet_('الزيارات', VISIT_COLS), VISIT_COLS))
   };
