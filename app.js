@@ -163,7 +163,18 @@ const blobToB64 = b => new Promise((res, rej) => { const r = new FileReader(); r
 
 // ---------- API (Google Apps Script) ----------
 async function api(action, payload = {}) {
-  if (!S.apiUrl) throw new Error('لسه ماربطتش التطبيق بجوجل — من الإعدادات');
+  if (!S.apiUrl) throw new Error('لسه ماربطتش التطبيق — الأدمن يحط بيانات الربط في config.js');
+  const C = window.APP_CONFIG || {};
+  if (C.supabaseUrl && C.supabaseKey) {
+    // السحابة (Supabase): كل العمليات بتعدي من دالة واحدة بتتأكد من رمز الفريق
+    const r = await fetch(C.supabaseUrl.replace(/\/$/, '') + '/rest/v1/rpc/ft_api', { method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: C.supabaseKey, Authorization: 'Bearer ' + C.supabaseKey },
+      body: JSON.stringify({ p_action: action, p_token: S.token, p_payload: payload }) });
+    let j; try { j = await r.json(); } catch (e) { throw new Error('رد غير متوقع من السحابة (' + r.status + ')'); }
+    if (!r.ok) throw new Error(j.message || ('خطأ من السحابة ' + r.status));
+    if (!j.ok) throw new Error(j.error || 'خطأ من السحابة');
+    return j.data;
+  }
   const r = await fetch(S.apiUrl, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, token: S.token, payload }) });
   const text = await r.text(); let j;
   try { j = JSON.parse(text); } catch (e) {
@@ -815,7 +826,7 @@ async function viewSettings() {
     view(`<div class="stack"><h1>الإعدادات</h1><div class="empty"><h2>🔒 الصفحة دي للأدمن بس</h2><p>الإعدادات بتتحدد مرة واحدة من الأدمن وبتوصل لكل الأجهزة لوحدها.</p>
       <button class="btn primary" id="unl">فتح بكلمة سر الأدمن</button></div>
       <div class="card stack"><div class="row between"><div><b>اسم المستخدم على الجهاز ده</b><div class="small muted">${esc(S.user || '—')}</div></div><button class="btn sm" id="chName">تغيير</button></div>
-      <div class="row between"><div><b>الربط بجوجل</b><div class="small muted">${S.apiUrl ? 'مربوط تلقائياً ✓' : 'غير مربوط — الأدمن يضيف الرابط في config.js'}</div></div><button class="btn sm" id="bTest0">اختبار</button></div></div></div>`);
+      <div class="row between"><div><b>الربط بالسحابة</b><div class="small muted">${S.apiUrl ? 'مربوط تلقائياً ✓' : 'غير مربوط — الأدمن يضيف الرابط في config.js'}</div></div><button class="btn sm" id="bTest0">اختبار</button></div></div></div>`);
     $('#unl').onclick = async () => { if (await requireAdmin('فتح الإعدادات')) viewSettings(); };
     $('#chName').onclick = () => askUserName(true);
     $('#bTest0').onclick = async () => { try { const r = await api('ping'); toast(`الاتصال شغال ✓ — ${r.sheetName || ''}`); } catch (e) { toast('فشل: ' + e.message, 6000); } };
@@ -823,13 +834,13 @@ async function viewSettings() {
   }
   const tplText = S.templates.map(t => `${t.name} | ${t.offset} | ${t.product || ''}`).join('\n');
   const chk = (n, on, label) => `<label class="row small" style="margin:0;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" name="${n}" style="width:auto;min-height:0" ${on ? 'checked' : ''}> ${label}</label>`;
-  const fromCfg = !!CFG.apiUrl;
+  const fromCfg = !!(CFG.apiUrl || CFG.supabaseUrl);
   view(`
   <form class="stack" id="f" autocomplete="off">
     <div class="row between"><h1>الإعدادات <span class="tag green">أدمن</span></h1>${CFG.adminPasswordHash ? '<button type="button" class="btn sm" id="lock">🔒 قفل</button>' : ''}</div>
     ${!CFG.adminPasswordHash ? '<div class="card" style="border-color:var(--warn)"><b>⚠️ الصفحة دي مفتوحة لأي حد لحد دلوقتي.</b><div class="small">اكتب كلمة سر للأدمن في آخر الصفحة واضغط توليد، وانسخ السطر اللي هيطلع في ملف config.js على GitHub.</div></div>' : ''}
-    <fieldset class="stack"><legend>الربط بجوجل</legend>
-      ${fromCfg ? `<div class="small">✓ الربط متحدد في ملف <b>config.js</b> وبيوصل لكل الأجهزة لوحده.</div><div class="small muted" dir="ltr" style="word-break:break-all">${esc(CFG.apiUrl)}</div>` : `
+    <fieldset class="stack"><legend>الربط بالسحابة</legend>
+      ${fromCfg ? `<div class="small">✓ الربط متحدد في ملف <b>config.js</b> وبيوصل لكل الأجهزة لوحده.</div><div class="small muted" dir="ltr" style="word-break:break-all">${esc(CFG.supabaseUrl || CFG.apiUrl)}</div>` : `
       <div class="small muted">علشان كل الأجهزة تتربط لوحدها، حط الرابط والرمز في ملف config.js على GitHub. الخانات دي بتأثر على الجهاز ده بس.</div>
       <div class="field"><label>رابط Web App</label><input name="apiUrl" dir="ltr" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(S.apiUrl)}"></div>
       <div class="field"><label>رمز الربط (TOKEN)</label><input name="token" dir="ltr" type="password" value="${esc(S.token)}"></div>`}
@@ -865,7 +876,7 @@ async function viewSettings() {
     <fieldset class="stack"><legend>مساحة الجهاز</legend>
       <button type="button" class="btn danger" id="bClean">مسح الصور المرفوعة من الجهاز</button>
     </fieldset>
-    <div class="small muted" style="text-align:center">الإصدار 1.2</div>
+    <div class="small muted" style="text-align:center">الإصدار 1.3</div>
   </form>`);
   if ($('#lock')) $('#lock').onclick = () => { adminPass = null; viewSettings(); toast('اتقفلت 🔒'); };
   $('#bTest').onclick = async () => {
@@ -902,7 +913,8 @@ function afterChange() { updateNet(); setTimeout(autoSync, 400); }
   try {
     await DB.open(); await loadSettings();
     // الربط من config.js دايماً له الأولوية — أي جهاز جديد بيتربط لوحده
-    if (CFG.apiUrl) S.apiUrl = CFG.apiUrl;
+    if (CFG.supabaseUrl && CFG.supabaseKey) S.apiUrl = CFG.supabaseUrl;
+    else if (CFG.apiUrl) S.apiUrl = CFG.apiUrl;
     if (CFG.token) S.token = CFG.token;
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
     $('#brandSub').textContent = S.user || 'Field Trials';
