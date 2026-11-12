@@ -1,6 +1,6 @@
 /* Service Worker — تشغيل التطبيق أوفلاين */
-const VERSION = 'ft-v1.1.0';
-const SHELL = ['./', './index.html', './app.css', './app.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
+const VERSION = 'ft-v1.2.0';
+const SHELL = ['./', './index.html', './app.css', './app.js', './config.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 const RUNTIME = 'ft-runtime';
 
 self.addEventListener('install', e => {
