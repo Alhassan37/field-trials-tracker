@@ -85,7 +85,7 @@ const DB = {
 
 // ---------- Settings ----------
 const DEFAULTS = {
-  apiUrl: '', token: '', user: '', codePrefix: 'C', autoSync: true, theme: 'auto',
+  apiUrl: '', token: '', user: '', codePrefix: 'C', autoSync: true, autoPhotos: true, wifiOnly: false, syncEvery: 5, theme: 'auto',
   products: ['يونايت', 'أجري كيور'],
   templates: [
     { key: 'v1', name: 'زيارة 1 - يونايت', offset: 0, product: 'يونايت' },
@@ -165,7 +165,11 @@ const blobToB64 = b => new Promise((res, rej) => { const r = new FileReader(); r
 async function api(action, payload = {}) {
   if (!S.apiUrl) throw new Error('لسه ماربطتش التطبيق بجوجل — من الإعدادات');
   const r = await fetch(S.apiUrl, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, token: S.token, payload }) });
-  let j; try { j = await r.json(); } catch (e) { throw new Error('رد غير متوقع من السيرفر — راجع رابط الربط وصلاحية النشر (Anyone)'); }
+  const text = await r.text(); let j;
+  try { j = JSON.parse(text); } catch (e) {
+    if (/accounts\.google|ServiceLogin|Sign in/i.test(r.url + text.slice(0, 2000))) throw new Error('جوجل طالب تسجيل دخول: في Apps Script خلي Who has access = Anyone واعمل New version');
+    throw new Error('رد غير متوقع من السيرفر — راجع رابط الربط (لازم آخره /exec)');
+  }
   if (!j.ok) throw new Error(j.error || 'خطأ من السيرفر');
   return j.data;
 }
@@ -211,9 +215,13 @@ function normalize(o) {
   r.deleted = r.deleted === true || r.deleted === 'TRUE' || r.deleted === '1' || r.deleted === 1 ? 1 : 0;
   return r;
 }
-async function uploadPhotos({ log = () => { }, onProgress = () => { } } = {}) {
-  if (!navigator.onLine) { toast('رفع الصور محتاج إنترنت'); return; }
-  const ok = await syncData({ silent: true, log }); if (!ok) { toast('لازم المزامنة تنجح الأول'); return; }
+let uploading = false;
+const onWifiOrUnknown = () => { const c = navigator.connection; return !c || !c.type || c.type === 'wifi' || c.type === 'ethernet'; };
+async function uploadPhotos({ log = () => { }, onProgress = () => { }, silent = false } = {}) {
+  if (uploading) return;
+  if (!navigator.onLine) { if (!silent) toast('رفع الصور محتاج إنترنت'); return; }
+  if (!silent || !syncing) { const ok = await syncData({ silent: true, log }); if (!ok) { if (!silent) toast('لازم المزامنة تنجح الأول'); return; } }
+  uploading = true; try {
   const photos = (await DB.all('photos')).filter(p => !p.uploaded);
   const touched = new Set(); let done = 0, skipped = 0;
   for (const p of photos) {
@@ -228,9 +236,10 @@ async function uploadPhotos({ log = () => { }, onProgress = () => { } } = {}) {
     } catch (e) { log('خطأ في صورة: ' + e.message); skipped++; }
   }
   if (touched.size) { log('تحديث ملفات العملاء (Docs)…'); try { await api('rebuildDocs', { clientIds: [...touched] }); } catch (e) { log('خطأ في تحديث الملفات: ' + e.message); } }
-  S.lastPhotoUpload = nowISO(); await saveSettings();
+  if (done) { S.lastPhotoUpload = nowISO(); await saveSettings(); }
   log(`اترفع ${done} صورة${skipped ? ` — ${skipped} لم تُرفع` : ''} ✓`);
-  toast(`اترفع ${done} صورة ✓`); updateNet();
+  if (!silent || done) toast(`اترفع ${done} صورة ✓`);
+  } finally { uploading = false; updateNet(); }
 }
 
 // ---------- Network pill ----------
@@ -240,7 +249,20 @@ async function updateNet() {
   $('#netText').textContent = syncing ? 'جاري المزامنة…' : on ? 'متصل' : 'أوفلاين';
   try { const c = await pendingCounts(); const n = c.clients + c.visits; const b = $('#pendingBadge'); b.hidden = !(n + c.photos); b.textContent = n + c.photos; b.title = `${n} سجل + ${c.photos} صورة`; } catch (e) { }
 }
-window.addEventListener('online', () => { updateNet(); if (S.autoSync) syncData({ silent: true }); });
+/** مزامنة تلقائية: البيانات + الصور في الخلفية */
+async function autoSync() {
+  if (!S.autoSync || !S.apiUrl || !navigator.onLine || syncing || uploading) return;
+  const ok = await syncData({ silent: true });
+  if (ok && S.autoPhotos && (!S.wifiOnly || onWifiOrUnknown())) {
+    const pend = (await DB.all('photos')).some(p => !p.uploaded);
+    if (pend) await uploadPhotos({ silent: true });
+  }
+  if (ok && /^#\/(home|clients|sync)?$/.test(location.hash || '#/home') && !document.querySelector('form')) route();
+}
+let autoTimer = null;
+function startAutoSync() { clearInterval(autoTimer); if (S.autoSync) autoTimer = setInterval(autoSync, Math.max(1, Number(S.syncEvery) || 5) * 60000); }
+window.addEventListener('online', () => { updateNet(); autoSync(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') autoSync(); });
 window.addEventListener('offline', updateNet);
 
 // ---------- Router ----------
@@ -748,7 +770,11 @@ async function viewSettings() {
     <fieldset class="stack"><legend>الربط بجوجل (Sheets + Drive + Docs)</legend>
       <div class="field"><label>رابط Web App من Apps Script</label><input name="apiUrl" dir="ltr" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(S.apiUrl)}"></div>
       <div class="field"><label>رمز الربط (TOKEN)</label><input name="token" dir="ltr" type="password" value="${esc(S.token)}"></div>
-      <div class="row"><button type="button" class="btn sm" id="bTest">اختبار الاتصال</button><label class="row small" style="margin:0"><input type="checkbox" name="autoSync" style="width:auto;min-height:0" ${S.autoSync ? 'checked' : ''}> مزامنة تلقائية للبيانات لما النت يرجع</label></div>
+      <div class="row"><button type="button" class="btn sm" id="bTest">اختبار الاتصال</button></div>
+      <label class="row small" style="margin:0;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" name="autoSync" style="width:auto;min-height:0" ${S.autoSync ? 'checked' : ''}> مزامنة تلقائية دايماً (كل فترة + أول ما النت يرجع + بعد كل حفظ)</label>
+      <label class="row small" style="margin:0;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" name="autoPhotos" style="width:auto;min-height:0" ${S.autoPhotos ? 'checked' : ''}> رفع الصور تلقائياً في الخلفية</label>
+      <label class="row small" style="margin:0;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" name="wifiOnly" style="width:auto;min-height:0" ${S.wifiOnly ? 'checked' : ''}> رفع الصور على الواي فاي بس (توفير باقة النت)</label>
+      <div class="field"><label>المزامنة كل (دقيقة)</label><input name="syncEvery" inputmode="numeric" value="${esc(S.syncEvery)}"></div>
     </fieldset>
     <fieldset class="stack"><legend>الفريق</legend>
       <div class="grid2">
@@ -771,12 +797,12 @@ async function viewSettings() {
       <div class="small muted">بعد التأكد إن الصور اترفعت على الدرايف تقدر تمسحها من الجهاز لتوفير المساحة.</div>
       <button type="button" class="btn danger" id="bClean">مسح الصور المرفوعة من الجهاز</button>
     </fieldset>
-    <div class="small muted" style="text-align:center">الإصدار 1.0 — البيانات محفوظة على هذا الجهاز وبتتزامن مع Google Sheets</div>
+    <div class="small muted" style="text-align:center">الإصدار 1.1 — البيانات محفوظة على هذا الجهاز وبتتزامن مع Google Sheets</div>
   </form>`);
   $('#bTest').onclick = async () => {
     const f = $('#f'); const old = { apiUrl: S.apiUrl, token: S.token }; S.apiUrl = fv(f, 'apiUrl'); S.token = fv(f, 'token');
-    try { const r = await api('ping'); toast(`الاتصال شغال ✓ — ${r.sheetName || ''}`, 3500); } catch (e) { toast('فشل: ' + e.message, 4500); }
-    finally { Object.assign(S, old); }
+    try { const r = await api('ping'); await saveSettings(); toast(`الاتصال شغال ✓ واتحفظ — ${r.sheetName || ''}`, 3500); startAutoSync(); autoSync(); }
+    catch (e) { Object.assign(S, old); toast('فشل: ' + e.message, 6000); }
   };
   $('#bClean').onclick = async () => {
     const up = (await DB.all('photos')).filter(p => p.uploaded); if (!up.length) { toast('مفيش صور مرفوعة على الجهاز'); return; }
@@ -788,15 +814,15 @@ async function viewSettings() {
     const lines = fv(f, 'templates').split('\n').map(l => l.trim()).filter(Boolean);
     if (!lines.length) { toast('لازم زيارة واحدة على الأقل'); return; }
     S.templates = lines.map((l, i) => { const [name, off, prod] = l.split('|').map(x => (x || '').trim()); return { key: 'v' + (i + 1), name: name || `زيارة ${i + 1}`, offset: Number(off) || 0, product: prod || '' }; });
-    Object.assign(S, { apiUrl: fv(f, 'apiUrl'), token: fv(f, 'token'), user: fv(f, 'user'), codePrefix: fv(f, 'codePrefix') || 'C', autoSync: f.elements.autoSync.checked,
+    Object.assign(S, { apiUrl: fv(f, 'apiUrl'), token: fv(f, 'token'), user: fv(f, 'user'), codePrefix: fv(f, 'codePrefix') || 'C', autoSync: f.elements.autoSync.checked, autoPhotos: f.elements.autoPhotos.checked, wifiOnly: f.elements.wifiOnly.checked, syncEvery: Number(fv(f, 'syncEvery')) || 5,
       products: fv(f, 'products').split('\n').map(x => x.trim()).filter(Boolean), regions: fv(f, 'regions').split('\n').map(x => x.trim()).filter(Boolean),
       defaultLines: Number(fv(f, 'defaultLines')) || '', theme: (f.querySelector('input[name=theme]:checked') || {}).value || 'auto' });
-    await saveSettings(); $('#brandSub').textContent = S.user || 'Field Trials'; toast('اتحفظت الإعدادات ✓');
+    await saveSettings(); startAutoSync(); if (S.apiUrl) autoSync(); $('#brandSub').textContent = S.user || 'Field Trials'; toast('اتحفظت الإعدادات ✓');
   };
 }
 
 // ---------- Boot ----------
-function afterChange() { updateNet(); if (S.autoSync && navigator.onLine && S.apiUrl) setTimeout(() => syncData({ silent: true }), 400); }
+function afterChange() { updateNet(); setTimeout(autoSync, 400); }
 (async function boot() {
   try {
     await DB.open(); await loadSettings();
@@ -804,6 +830,6 @@ function afterChange() { updateNet(); if (S.autoSync && navigator.onLine && S.ap
     $('#brandSub').textContent = S.user || 'Field Trials';
     window.addEventListener('hashchange', route); await route(); updateNet();
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
-    if (S.autoSync && navigator.onLine && S.apiUrl) syncData({ silent: true }).then(() => { if (/^#\/(home|clients)?$/.test(location.hash || '#/home')) route(); });
+    startAutoSync(); autoSync();
   } catch (e) { view(`<div class="empty">خطأ في تشغيل التطبيق: ${esc(e.message)}</div>`); }
 })();
