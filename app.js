@@ -196,11 +196,13 @@ async function syncData({ silent = false, log = () => { } } = {}) {
       const cur = await DB.get('visits', v.id);
       if (cur) { Object.assign(cur, res || {}); if (cur.updatedAt === v.updatedAt) cur.synced = 1; await DB.put('visits', cur); }
     }
+    if (S.configDirty && adminPass !== null) { log('إرسال الإعدادات لكل الأجهزة…'); try { await pushSharedConfig(); } catch (e) { log('الإعدادات: ' + e.message); } }
     log('سحب التحديثات من الشيت…');
     const data = await api('pull', { since: S.lastPull || '' });
     let n = 0;
     for (const sc of data.clients || []) { const l = await DB.get('clients', sc.id); if (!l || (l.synced && (sc.updatedAt || '') >= (l.updatedAt || ''))) { await DB.put('clients', { ...normalize(sc), synced: 1 }); n++; } else if (l) { l.folderUrl = sc.folderUrl || l.folderUrl; l.docUrl = sc.docUrl || l.docUrl; await DB.put('clients', l); } }
     for (const sv of data.visits || []) { const l = await DB.get('visits', sv.id); if (!l || (l.synced && (sv.updatedAt || '') >= (l.updatedAt || ''))) { await DB.put('visits', { ...normalize(sv), synced: 1 }); n++; } }
+    if (data.config && !S.configDirty && await applySharedConfig(data.config)) log('اتحدثت الإعدادات من الأدمن ✓');
     S.lastPull = data.serverTime; S.lastSync = nowISO(); await saveSettings();
     log(`تمت المزامنة ✓ (${clients.length} عميل، ${visits.length} زيارة مرفوعة، ${n} تحديث)`);
     if (!silent) toast('تمت المزامنة ✓');
@@ -434,6 +436,7 @@ async function viewClient(id) {
     <button class="btn danger" id="delClient">حذف العميل</button>
   </div>`);
   $('#delClient').onclick = async () => {
+    if (!await requireAdmin('حذف العميل محتاج كلمة سر الأدمن')) return;
     if (!await confirmBox(`حذف ${c.name || c.code} وكل زياراته؟`, 'حذف', true)) return;
     const t = nowISO(); c.deleted = 1; c.updatedAt = t; c.synced = 0; await DB.put('clients', c);
     for (const v of visits.filter(v => v.clientId === c.id)) { v.deleted = 1; v.updatedAt = t; v.synced = 0; await DB.put('visits', v); }
@@ -624,6 +627,7 @@ async function viewVisitForm({ id, clientId, key }) {
   $('#phInput').onchange = onFiles; $('#phInput2').onchange = onFiles;
   $('#phCam').onclick = () => $('#phInput').click(); $('#phGal').onclick = () => $('#phInput2').click();
   if ($('#delVisit')) $('#delVisit').onclick = async () => {
+    if (!await requireAdmin('حذف الزيارة محتاج كلمة سر الأدمن')) return;
     if (!await confirmBox('حذف الزيارة دي؟', 'حذف', true)) return;
     v.deleted = 1; v.updatedAt = nowISO(); v.synced = 0; await DB.put('visits', v);
     for (const p of stored) if (!p.uploaded) await DB.del('photos', p.id);
@@ -762,48 +766,115 @@ async function importFile(file) {
 }
 
 // ---------- Views: Settings ----------
+// ---------- Admin ----------
+const CFG = window.APP_CONFIG || {};
+const SHARED_KEYS = ['templates', 'products', 'regions', 'codePrefix', 'defaultLines', 'autoSync', 'autoPhotos', 'wifiOnly', 'syncEvery'];
+let adminPass = null; // كلمة سر الأدمن بعد الفتح (في الذاكرة بس لحد ما التطبيق يتقفل)
+async function sha256(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+async function checkAdmin(pw) { return !!CFG.adminPasswordHash && (await sha256(pw)) === CFG.adminPasswordHash; }
+/** يطلب كلمة سر الأدمن لو مش مفتوحة — يرجّع true لو مسموح */
+function requireAdmin(reason = 'العملية دي للأدمن بس') {
+  if (adminPass !== null || !CFG.adminPasswordHash) return Promise.resolve(true);
+  return new Promise(res => {
+    const m = $('#modal');
+    $('#modalBody').innerHTML = `<form class="stack" id="admF"><h2>🔒 ${esc(reason)}</h2>
+      <div class="field"><label>كلمة سر الأدمن</label><input type="password" id="admP" autocomplete="current-password" required></div>
+      <div class="small" id="admE" style="color:var(--accent)"></div>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn" id="admC">إلغاء</button><button class="btn primary">فتح</button></div></form>`;
+    $('#admC').onclick = () => { m.close(); res(false); };
+    $('#admF').onsubmit = async e => { e.preventDefault(); const pw = $('#admP').value; if (await checkAdmin(pw)) { adminPass = pw; m.close(); res(true); } else { $('#admE').textContent = 'كلمة السر غلط'; $('#admP').select(); } };
+    m.showModal(); setTimeout(() => $('#admP').focus(), 50);
+  });
+}
+/** تطبيق الإعدادات المشتركة اللي جاية من السيرفر (الأدمن بيحددها لكل الأجهزة) */
+async function applySharedConfig(cfg) {
+  if (!cfg || !cfg.updatedAt || cfg.updatedAt <= (S.sharedAt || '')) return false;
+  SHARED_KEYS.forEach(k => { if (cfg[k] !== undefined && cfg[k] !== null && cfg[k] !== '') S[k] = cfg[k]; });
+  S.sharedAt = cfg.updatedAt; await saveSettings(); startAutoSync(); return true;
+}
+async function pushSharedConfig() {
+  const cfg = {}; SHARED_KEYS.forEach(k => cfg[k] = S[k]);
+  const r = await api('setConfig', { config: cfg, adminPassword: adminPass });
+  S.sharedAt = r.updatedAt; S.configDirty = 0; await saveSettings();
+}
+function askUserName(force = false) {
+  if (S.user && !force) return Promise.resolve();
+  return new Promise(res => {
+    const m = $('#modal');
+    $('#modalBody').innerHTML = `<form class="stack" id="nmF"><h2>👋 أهلاً! اكتب اسمك</h2><div class="small muted">الاسم ده بيتسجل مع كل عميل وزيارة بتدخلها.</div>
+      <div class="field"><input id="nmI" required value="${esc(S.user)}" placeholder="مثال: م. أحمد – فريق 1"></div><button class="btn primary">${force ? 'حفظ' : 'ابدأ'}</button></form>`;
+    m.addEventListener('cancel', e => { if (!S.user) e.preventDefault(); }, { once: true });
+    $('#nmF').onsubmit = async e => { e.preventDefault(); S.user = $('#nmI').value.trim(); await saveSettings(); $('#brandSub').textContent = S.user; m.close(); res(); };
+    m.showModal(); setTimeout(() => $('#nmI').focus(), 50);
+  });
+}
+
+// ---------- Views: Settings (للأدمن) ----------
 async function viewSettings() {
+  if (adminPass === null && CFG.adminPasswordHash) {
+    view(`<div class="stack"><h1>الإعدادات</h1><div class="empty"><h2>🔒 الصفحة دي للأدمن بس</h2><p>الإعدادات بتتحدد مرة واحدة من الأدمن وبتوصل لكل الأجهزة لوحدها.</p>
+      <button class="btn primary" id="unl">فتح بكلمة سر الأدمن</button></div>
+      <div class="card stack"><div class="row between"><div><b>اسم المستخدم على الجهاز ده</b><div class="small muted">${esc(S.user || '—')}</div></div><button class="btn sm" id="chName">تغيير</button></div>
+      <div class="row between"><div><b>الربط بجوجل</b><div class="small muted">${S.apiUrl ? 'مربوط تلقائياً ✓' : 'غير مربوط — الأدمن يضيف الرابط في config.js'}</div></div><button class="btn sm" id="bTest0">اختبار</button></div></div></div>`);
+    $('#unl').onclick = async () => { if (await requireAdmin('فتح الإعدادات')) viewSettings(); };
+    $('#chName').onclick = () => askUserName(true);
+    $('#bTest0').onclick = async () => { try { const r = await api('ping'); toast(`الاتصال شغال ✓ — ${r.sheetName || ''}`); } catch (e) { toast('فشل: ' + e.message, 6000); } };
+    return;
+  }
   const tplText = S.templates.map(t => `${t.name} | ${t.offset} | ${t.product || ''}`).join('\n');
+  const chk = (n, on, label) => `<label class="row small" style="margin:0;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" name="${n}" style="width:auto;min-height:0" ${on ? 'checked' : ''}> ${label}</label>`;
+  const fromCfg = !!CFG.apiUrl;
   view(`
   <form class="stack" id="f" autocomplete="off">
-    <h1>الإعدادات</h1>
-    <fieldset class="stack"><legend>الربط بجوجل (Sheets + Drive + Docs)</legend>
-      <div class="field"><label>رابط Web App من Apps Script</label><input name="apiUrl" dir="ltr" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(S.apiUrl)}"></div>
-      <div class="field"><label>رمز الربط (TOKEN)</label><input name="token" dir="ltr" type="password" value="${esc(S.token)}"></div>
+    <div class="row between"><h1>الإعدادات <span class="tag green">أدمن</span></h1>${CFG.adminPasswordHash ? '<button type="button" class="btn sm" id="lock">🔒 قفل</button>' : ''}</div>
+    ${!CFG.adminPasswordHash ? '<div class="card" style="border-color:var(--warn)"><b>⚠️ الصفحة دي مفتوحة لأي حد لحد دلوقتي.</b><div class="small">اكتب كلمة سر للأدمن في آخر الصفحة واضغط توليد، وانسخ السطر اللي هيطلع في ملف config.js على GitHub.</div></div>' : ''}
+    <fieldset class="stack"><legend>الربط بجوجل</legend>
+      ${fromCfg ? `<div class="small">✓ الربط متحدد في ملف <b>config.js</b> وبيوصل لكل الأجهزة لوحده.</div><div class="small muted" dir="ltr" style="word-break:break-all">${esc(CFG.apiUrl)}</div>` : `
+      <div class="small muted">علشان كل الأجهزة تتربط لوحدها، حط الرابط والرمز في ملف config.js على GitHub. الخانات دي بتأثر على الجهاز ده بس.</div>
+      <div class="field"><label>رابط Web App</label><input name="apiUrl" dir="ltr" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(S.apiUrl)}"></div>
+      <div class="field"><label>رمز الربط (TOKEN)</label><input name="token" dir="ltr" type="password" value="${esc(S.token)}"></div>`}
       <div class="row"><button type="button" class="btn sm" id="bTest">اختبار الاتصال</button></div>
-      <label class="row small" style="margin:0;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" name="autoSync" style="width:auto;min-height:0" ${S.autoSync ? 'checked' : ''}> مزامنة تلقائية دايماً (كل فترة + أول ما النت يرجع + بعد كل حفظ)</label>
-      <label class="row small" style="margin:0;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" name="autoPhotos" style="width:auto;min-height:0" ${S.autoPhotos ? 'checked' : ''}> رفع الصور تلقائياً في الخلفية</label>
-      <label class="row small" style="margin:0;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" name="wifiOnly" style="width:auto;min-height:0" ${S.wifiOnly ? 'checked' : ''}> رفع الصور على الواي فاي بس (توفير باقة النت)</label>
-      <div class="field"><label>المزامنة كل (دقيقة)</label><input name="syncEvery" inputmode="numeric" value="${esc(S.syncEvery)}"></div>
     </fieldset>
-    <fieldset class="stack"><legend>الفريق</legend>
+    <fieldset class="stack"><legend>إعدادات لكل الأجهزة</legend>
+      <div class="small muted">أي تغيير هنا بيتحفظ على جوجل وبيوصل لكل أجهزة الفريق في أول مزامنة.</div>
+      ${chk('autoSync', S.autoSync, 'مزامنة تلقائية دايماً (كل فترة + أول ما النت يرجع + بعد كل حفظ)')}
+      ${chk('autoPhotos', S.autoPhotos, 'رفع الصور تلقائياً في الخلفية')}
+      ${chk('wifiOnly', S.wifiOnly, 'رفع الصور على الواي فاي بس (توفير باقة النت)')}
       <div class="grid2">
-        <div class="field"><label>اسم المسجّل / الفريق</label><input name="user" value="${esc(S.user)}"></div>
-        <div class="field"><label>بادئة كود العميل</label><input name="codePrefix" value="${esc(S.codePrefix)}" placeholder="مثال: QL"></div>
+        <div class="field"><label>المزامنة كل (دقيقة)</label><input name="syncEvery" inputmode="numeric" value="${esc(S.syncEvery)}"></div>
+        <div class="field"><label>بادئة كود العميل</label><input name="codePrefix" value="${esc(S.codePrefix)}" placeholder="مثال: GA"></div>
       </div>
-    </fieldset>
-    <fieldset class="stack"><legend>التجربة</legend>
       <div class="field"><label>زيارات الرحلة — سطر لكل زيارة: الاسم | بعد كام يوم من البداية | المنتج</label><textarea name="templates" rows="4">${esc(tplText)}</textarea></div>
       <div class="grid2">
         <div class="field"><label>المنتجات (سطر لكل منتج)</label><textarea name="products" rows="3">${esc((S.products || []).join('\n'))}</textarea></div>
-        <div class="field"><label>المناطق المقترحة (اختياري — سطر لكل منطقة)</label><textarea name="regions" rows="3" placeholder="هتظهر كاقتراحات، وتقدر تكتب أي منطقة">${esc((S.regions || []).join('\n'))}</textarea></div>
+        <div class="field"><label>المناطق المقترحة (سطر لكل منطقة)</label><textarea name="regions" rows="3" placeholder="هتظهر كاقتراحات، وتقدر تكتب أي منطقة">${esc((S.regions || []).join('\n'))}</textarea></div>
       </div>
       <div class="field"><label>عدد الخطوط الافتراضي في التجربة</label><input name="defaultLines" inputmode="numeric" value="${esc(S.defaultLines)}"></div>
-      <div class="small muted">تغيير اسم زيارة بيغيّر اسم الفولدر للزيارات الجديدة فقط. ترتيب السطور = ترتيب الزيارات.</div>
+      <div class="small muted">ترتيب السطور = ترتيب الزيارات. تغيير اسم زيارة بيأثر على الفولدرات الجديدة بس.</div>
     </fieldset>
-    <fieldset class="stack"><legend>الشكل</legend>${['auto', 'light', 'dark'].map(t => `<label class="row" style="margin:0"><input type="radio" name="theme" value="${t}" style="width:auto;min-height:0" ${S.theme === t ? 'checked' : ''}> ${{ auto: 'تلقائي', light: 'فاتح', dark: 'غامق' }[t]}</label>`).join('')}</fieldset>
-    <button class="btn primary block" type="submit">حفظ الإعدادات</button>
+    <fieldset class="stack"><legend>الجهاز ده</legend>
+      <div class="field"><label>اسم المستخدم</label><input name="user" value="${esc(S.user)}"></div>
+      <div class="row">${['auto', 'light', 'dark'].map(t => `<label class="row" style="margin:0"><input type="radio" name="theme" value="${t}" style="width:auto;min-height:0" ${S.theme === t ? 'checked' : ''}> ${{ auto: 'تلقائي', light: 'فاتح', dark: 'غامق' }[t]}</label>`).join('')}</div>
+    </fieldset>
+    <button class="btn primary block" type="submit">حفظ وإرسال لكل الأجهزة</button>
+    <fieldset class="stack"><legend>كلمة سر الأدمن</legend>
+      <div class="small muted">لتغييرها: اكتب الجديدة، وانسخ السطر اللي هيظهر وحطه مكان <b>adminPasswordHash</b> في config.js على GitHub، وحط نفس الكلمة في <b>ADMIN_PASSWORD</b> في Apps Script.</div>
+      <div class="row"><input type="password" id="newAdm" placeholder="كلمة السر الجديدة" style="flex:1"><button type="button" class="btn sm" id="genH">توليد</button></div>
+      <div class="log" id="hashOut" hidden dir="ltr"></div>
+    </fieldset>
     <fieldset class="stack"><legend>مساحة الجهاز</legend>
-      <div class="small muted">بعد التأكد إن الصور اترفعت على الدرايف تقدر تمسحها من الجهاز لتوفير المساحة.</div>
       <button type="button" class="btn danger" id="bClean">مسح الصور المرفوعة من الجهاز</button>
     </fieldset>
-    <div class="small muted" style="text-align:center">الإصدار 1.1 — البيانات محفوظة على هذا الجهاز وبتتزامن مع Google Sheets</div>
+    <div class="small muted" style="text-align:center">الإصدار 1.2</div>
   </form>`);
+  if ($('#lock')) $('#lock').onclick = () => { adminPass = null; viewSettings(); toast('اتقفلت 🔒'); };
   $('#bTest').onclick = async () => {
-    const f = $('#f'); const old = { apiUrl: S.apiUrl, token: S.token }; S.apiUrl = fv(f, 'apiUrl'); S.token = fv(f, 'token');
-    try { const r = await api('ping'); await saveSettings(); toast(`الاتصال شغال ✓ واتحفظ — ${r.sheetName || ''}`, 3500); startAutoSync(); autoSync(); }
+    const f = $('#f'); const old = { apiUrl: S.apiUrl, token: S.token };
+    if (!fromCfg) { S.apiUrl = fv(f, 'apiUrl'); S.token = fv(f, 'token'); }
+    try { const r = await api('ping'); await saveSettings(); toast(`الاتصال شغال ✓ — ${r.sheetName || ''}`, 3500); startAutoSync(); autoSync(); }
     catch (e) { Object.assign(S, old); toast('فشل: ' + e.message, 6000); }
   };
+  $('#genH').onclick = async () => { const v = $('#newAdm').value; if (v.length < 8) { toast('خليها 8 حروف على الأقل'); return; } const o = $('#hashOut'); o.hidden = false; o.textContent = `adminPasswordHash: '${await sha256(v)}',`; if (!CFG.adminPasswordHash) adminPass = v; };
   $('#bClean').onclick = async () => {
     const up = (await DB.all('photos')).filter(p => p.uploaded); if (!up.length) { toast('مفيش صور مرفوعة على الجهاز'); return; }
     if (!await confirmBox(`مسح ${up.length} صورة مرفوعة من الجهاز؟ (هتفضل على الدرايف)`, 'مسح', true)) return;
@@ -814,10 +885,14 @@ async function viewSettings() {
     const lines = fv(f, 'templates').split('\n').map(l => l.trim()).filter(Boolean);
     if (!lines.length) { toast('لازم زيارة واحدة على الأقل'); return; }
     S.templates = lines.map((l, i) => { const [name, off, prod] = l.split('|').map(x => (x || '').trim()); return { key: 'v' + (i + 1), name: name || `زيارة ${i + 1}`, offset: Number(off) || 0, product: prod || '' }; });
-    Object.assign(S, { apiUrl: fv(f, 'apiUrl'), token: fv(f, 'token'), user: fv(f, 'user'), codePrefix: fv(f, 'codePrefix') || 'C', autoSync: f.elements.autoSync.checked, autoPhotos: f.elements.autoPhotos.checked, wifiOnly: f.elements.wifiOnly.checked, syncEvery: Number(fv(f, 'syncEvery')) || 5,
+    if (!fromCfg) Object.assign(S, { apiUrl: fv(f, 'apiUrl'), token: fv(f, 'token') });
+    Object.assign(S, { user: fv(f, 'user'), codePrefix: fv(f, 'codePrefix') || 'C', autoSync: f.elements.autoSync.checked, autoPhotos: f.elements.autoPhotos.checked, wifiOnly: f.elements.wifiOnly.checked, syncEvery: Number(fv(f, 'syncEvery')) || 5,
       products: fv(f, 'products').split('\n').map(x => x.trim()).filter(Boolean), regions: fv(f, 'regions').split('\n').map(x => x.trim()).filter(Boolean),
-      defaultLines: Number(fv(f, 'defaultLines')) || '', theme: (f.querySelector('input[name=theme]:checked') || {}).value || 'auto' });
-    await saveSettings(); startAutoSync(); if (S.apiUrl) autoSync(); $('#brandSub').textContent = S.user || 'Field Trials'; toast('اتحفظت الإعدادات ✓');
+      defaultLines: Number(fv(f, 'defaultLines')) || '', theme: (f.querySelector('input[name=theme]:checked') || {}).value || 'auto', configDirty: 1 });
+    await saveSettings(); startAutoSync(); $('#brandSub').textContent = S.user || 'Field Trials';
+    if (navigator.onLine && S.apiUrl) {
+      try { await pushSharedConfig(); toast('اتحفظت واتبعتت لكل الأجهزة ✓'); } catch (err) { toast('اتحفظت على الجهاز — هتتبعت لما النت يرجع (' + err.message + ')', 5000); }
+    } else toast('اتحفظت على الجهاز — هتتبعت لكل الأجهزة أول ما النت يرجع');
   };
 }
 
@@ -826,10 +901,14 @@ function afterChange() { updateNet(); setTimeout(autoSync, 400); }
 (async function boot() {
   try {
     await DB.open(); await loadSettings();
+    // الربط من config.js دايماً له الأولوية — أي جهاز جديد بيتربط لوحده
+    if (CFG.apiUrl) S.apiUrl = CFG.apiUrl;
+    if (CFG.token) S.token = CFG.token;
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
     $('#brandSub').textContent = S.user || 'Field Trials';
     window.addEventListener('hashchange', route); await route(); updateNet();
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
+    await askUserName();
     startAutoSync(); autoSync();
   } catch (e) { view(`<div class="empty">خطأ في تشغيل التطبيق: ${esc(e.message)}</div>`); }
 })();
