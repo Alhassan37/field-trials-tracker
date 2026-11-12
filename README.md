@@ -83,3 +83,18 @@ apps-script/Code.gs	الربط مع Sheets وDrive وDocs (بيتلصق في App
 الخصوصية
 بيانات العملاء مش محفوظة في الريبو. هي محفوظة على أجهزة الفريق وفي حساب Google بتاعك بس. رابط الربط والـ TOKEN بيتكتبوا في إعدادات كل جهاز ومش موجودين في الكود.
 
+
+## السحابة (Supabase) + الربط التلقائي مع جوجل
+التطبيق بيرفع على **Supabase**، وده سحابة مجانية. وApps Script بيسحب من السحابة كل 5 دقايق ويكتب في **Google Sheets** ويعمل فولدرات **Drive** وملفات **Docs**. الطريقة دي مش محتاجة Deploy ولا صلاحية Anyone.
+
+**config.js**
+```js
+window.APP_CONFIG = {
+  supabaseUrl: 'https://jqeqacuzealoocamnsvc.supabase.co',
+  supabaseKey: 'sb_publishable_NovAB8qPBHd77Pv7NH4dYQ_44wPQ8f_',
+  token: 'رمز الفريق',
+  adminPasswordHash: 'بصمة كلمة سر الأدمن',
+};
+```
+
+**Apps Script (مرة واحدة)**: الصق `apps-script/Code.gs`، وحط `BRIDGE_KEY`، وشغّل `installBridge`. من القائمة **متابعة التجارب ← سحب البيانات من السحابة الآن** تقدر تسحب يدوي في أي وقت.
