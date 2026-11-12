@@ -1,5 +1,5 @@
 /* Service Worker — تشغيل التطبيق أوفلاين */
-const VERSION = 'ft-v1.2.0';
+const VERSION = 'ft-v1.3.0';
 const SHELL = ['./', './index.html', './app.css', './app.js', './config.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 const RUNTIME = 'ft-runtime';
 
