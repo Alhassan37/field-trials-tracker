@@ -12,8 +12,8 @@
  *  5) انسخ رابط الـ Web app وحطه هو والـ TOKEN في إعدادات التطبيق.
  */
 
-const TOKEN = 'G@2026Apple';                         // ← غيّره (نفس token في config.js)
-const ADMIN_PASSWORD = 'Greenapple_2026@';              // ← كلمة سر الأدمن (نفس اللي بتفتح بيها الإعدادات)
+const TOKEN = 'CHANGE-ME-123';                         // ← غيّره (نفس token في config.js)
+const ADMIN_PASSWORD = 'CHANGE-ME-123';              // ← كلمة سر الأدمن (نفس اللي بتفتح بيها الإعدادات)
 const ROOT_FOLDER_NAME = 'متابعة التجارب - ملفات العملاء'; // اسم الفولدر الرئيسي على الدرايف
 const MAX_DOC_IMAGES_PER_VISIT = 6;                    // عدد الصور المعروضة داخل ملف Docs لكل زيارة
 
