@@ -10,12 +10,24 @@
  *  3) شغّل الدالة setup مرة واحدة واقبل الصلاحيات.
  *  4) Deploy ← New deployment ← Web app ← Execute as: Me ← Who has access: Anyone ← Deploy.
  *  5) انسخ رابط الـ Web app وحطه هو والـ TOKEN في إعدادات التطبيق.
+ *
+ * ── أو (الأسهل، ومش محتاج Deploy ولا Anyone): الربط مع السحابة ──
+ *  1) حط BRIDGE_KEY تحت.  2) شغّل installBridge مرة واحدة واقبل الصلاحيات.
+ *  كده كل 5 دقايق البيانات والصور بتتسحب من السحابة للشيت والدرايف والـ Docs لوحدها.
  */
 
 const TOKEN = 'CHANGE-ME-123';                         // ← غيّره (نفس token في config.js)
 const ADMIN_PASSWORD = 'CHANGE-ME-123';              // ← كلمة سر الأدمن (نفس اللي بتفتح بيها الإعدادات)
 const ROOT_FOLDER_NAME = 'متابعة التجارب - ملفات العملاء'; // اسم الفولدر الرئيسي على الدرايف
 const MAX_DOC_IMAGES_PER_VISIT = 6;                    // عدد الصور المعروضة داخل ملف Docs لكل زيارة
+
+// ===== الربط مع السحابة (Supabase) — بيسحب البيانات كل 5 دقايق، مش محتاج Deploy =====
+const SUPABASE_URL = 'https://jqeqacuzealoocamnsvc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_NovAB8qPBHd77Pv7NH4dYQ_44wPQ8f_'; // مفتاح عام (مش سر)
+const BRIDGE_KEY = 'CHANGE-ME-BRIDGE';                 // ← مفتاح الربط الخاص (ماينفعش يترفع على GitHub)
+const DEFAULT_TEMPLATES = [
+  { key: 'v1', name: 'زيارة 1 - يونايت' }, { key: 'v2', name: 'زيارة 2 - أجري كيور' }, { key: 'v3', name: 'زيارة 3 - متابعة نهائية' }
+];
 
 const CLIENT_COLS = [
   ['id', 'id'], ['code', 'كود العميل'], ['name', 'اسم العميل'], ['phone', 'الموبايل'], ['region', 'المنطقة'], ['area', 'المركز'],
@@ -313,6 +325,70 @@ function mapUrl_(lat, lng) { return lat && lng ? `https://www.google.com/maps?q=
 function safe_(s) { return String(s).replace(/[\\/:*?"<>|#]/g, '-').replace(/\s+/g, ' ').trim().slice(0, 120); }
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
+// ================= Bridge: Supabase → Sheets + Drive + Docs =================
+function sb_(action, payload) {
+  const r = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/rpc/ft_bridge', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY },
+    payload: JSON.stringify({ p_action: action, p_key: BRIDGE_KEY, p_payload: payload || {} })
+  });
+  const j = JSON.parse(r.getContentText());
+  if (!j.ok) throw new Error(j.error || j.message || ('Supabase ' + r.getResponseCode()));
+  return j.data;
+}
+
+/** بيتشغل تلقائياً كل 5 دقايق: بيجيب الجديد من السحابة ويكتبه في الشيت والدرايف والـ Docs */
+function bridgeFromSupabase() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return;
+  const start = Date.now(), LIMIT = 4.5 * 60 * 1000, timeUp = () => Date.now() - start > LIMIT;
+  let total = 0;
+  try {
+    for (let round = 0; round < 20 && !timeUp(); round++) {
+      const d = sb_('fetch');
+      const tpl = (d.config && d.config.templates && d.config.templates.length) ? d.config.templates : DEFAULT_TEMPLATES;
+      const ack = { clients: [], visits: [], photos: [] };
+      for (const c of d.clients) {
+        if (timeUp()) break;
+        const synced = c._synced; delete c._synced;
+        try { const res = upsertClient_(c, tpl); ack.clients.push({ id: c.id, _synced: synced, folderUrl: res.folderUrl || '', docUrl: res.docUrl || '' }); }
+        catch (e) { console.error('client ' + c.id + ': ' + e); }
+      }
+      for (const v of d.visits) {
+        if (timeUp()) break;
+        const synced = v._synced; delete v._synced;
+        try { const res = upsertVisit_(v); ack.visits.push({ id: v.id, _synced: synced, folderUrl: res.folderUrl || '' }); }
+        catch (e) { console.error('visit ' + v.id + ': ' + e); }
+      }
+      const touched = {};
+      for (const p of d.photos) {
+        if (timeUp()) break;
+        try { const res = uploadPhoto_(p); ack.photos.push({ id: p.id, url: res.url }); touched[p.clientId] = 1; }
+        catch (e) { console.error('photo ' + p.id + ': ' + e); }
+      }
+      Object.keys(touched).forEach(id => { try { buildDoc_(id); } catch (e) { console.error('doc ' + id + ': ' + e); } });
+      const n = ack.clients.length + ack.visits.length + ack.photos.length;
+      if (n) sb_('ack', ack);
+      total += n;
+      if (!d.clients.length && !d.visits.length && !d.photos.length) break;
+      if (!n) break; // كل العناصر فشلت — نستنى الدورة الجاية
+    }
+  } finally { lock.releaseLock(); }
+  if (total) console.log('اتنقل ' + total + ' عنصر من السحابة');
+  return total;
+}
+
+/** مرة واحدة: يشغّل الربط التلقائي كل 5 دقايق */
+function installBridge() {
+  if (BRIDGE_KEY === 'CHANGE-ME-BRIDGE') throw new Error('حط BRIDGE_KEY الأول');
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'bridgeFromSupabase').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('bridgeFromSupabase').timeBased().everyMinutes(5).create();
+  sheet_('العملاء', CLIENT_COLS); sheet_('الزيارات', VISIT_COLS); sheet_('الصور', PHOTO_COLS); root_();
+  const n = bridgeFromSupabase();
+  Logger.log('الربط شغال ✓ — هيتحدث كل 5 دقايق. اتنقل دلوقتي: ' + n);
+}
+function menuBridgeNow_() { const n = bridgeFromSupabase(); SpreadsheetApp.getActive().toast('اتنقل ' + (n || 0) + ' عنصر من السحابة ✓'); }
+
 // ================= Setup & menu =================
 function setup() {
   sheet_('العملاء', CLIENT_COLS); sheet_('الزيارات', VISIT_COLS); sheet_('الصور', PHOTO_COLS);
@@ -323,6 +399,7 @@ function setup() {
 }
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('متابعة التجارب')
+    .addItem('سحب البيانات من السحابة الآن', 'menuBridgeNow_')
     .addItem('فتح فولدر ملفات العملاء', 'menuOpenRoot_')
     .addItem('إعادة بناء كل ملفات العملاء (Docs)', 'menuRebuildAll_')
     .addToUi();
