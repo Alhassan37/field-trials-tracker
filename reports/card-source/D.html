@@ -1,0 +1,42 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&display=swap" rel="stylesheet">
+<style>
+@page{size:297mm 210mm;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Cairo,sans-serif}
+.s{width:297mm;height:210mm;position:relative;overflow:hidden;background:#fff}
+.brand{position:absolute;top:0;right:0;bottom:0;width:118mm;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6mm;z-index:2;padding-bottom:16mm}
+.brand img{width:104mm}
+.brand .pill{background:#229E37;color:#fff;font-weight:900;font-size:19pt;padding:1.5mm 9mm;border-radius:30mm}
+.panel{position:absolute;top:0;left:0;bottom:0;width:180mm;background:radial-gradient(120% 100% at 100% 0,#2DBE4A 0,#229E37 35%,#0B3D18 90%);clip-path:polygon(15mm 0,100% 0,85% 100%,0 100%);clip-path:polygon(0 0,100% 0,calc(100% - 22mm) 100%,0 100%)}
+.panel:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(-45deg,rgba(255,255,255,.05) 0 6mm,transparent 6mm 12mm)}
+.accent{position:absolute;top:0;left:0;bottom:0;width:186mm;background:#C8F04B;clip-path:polygon(0 0,100% 0,calc(100% - 22mm) 100%,0 100%)}
+.content{position:absolute;top:0;left:0;bottom:0;width:160mm;padding:14mm 12mm 22mm 12mm;color:#fff;z-index:3;display:flex;flex-direction:column;justify-content:center}
+.h1{font-size:50pt;font-weight:900;line-height:1.05}
+.h2{font-size:16pt;font-weight:700;color:#C8F04B;margin-top:1mm}
+.box{background:#fff;color:#0B3D18;border-radius:5mm;margin-top:8mm;padding:3mm 7mm 6mm;box-shadow:0 1.5mm 0 rgba(0,0,0,.25)}
+.f{display:flex;align-items:flex-end;gap:2.5mm;font-weight:800;font-size:17pt;height:17mm}
+.f .v{flex:1;border-bottom:.6mm dashed #9bb9a2}
+.row{display:flex;gap:6mm}.row .f{flex:1}
+.foot{position:absolute;left:12mm;bottom:9mm;width:150mm;color:#fff;font-weight:700;font-size:12pt;z-index:3}
+.qr{display:flex;align-items:center;gap:2.5mm}
+.qr span{background:#fff;padding:1.5mm;border-radius:2mm;display:block}
+.qr img{width:17mm;height:17mm;display:block}
+.web{position:absolute;bottom:8mm;right:0;width:118mm;display:flex;align-items:center;justify-content:center;gap:5mm;color:#0B3D18;font-weight:800;font-size:12pt;z-index:3}.qr{color:#0B3D18}.qr span{border:.4mm solid #ddd}
+</style></head><body>
+<div class="s">
+ <div class="accent"></div><div class="panel"></div>
+ <div class="brand"><img src="logo_c.png" alt="Green Apple"><div class="pill">حملة الفراولة ٢٠٢٦</div></div>
+ <div class="content">
+  <div class="h1">تجربة حقلية</div>
+  <div class="h2">جرين أبل مع مزارعي الفراولة – شوف الفرق بعينك</div>
+  <div class="box">
+   <div class="row"><div class="f">كود التجربة:<span class="v"></span></div><div class="f">رقم الخط:<span class="v"></span></div></div>
+   <div class="f">المزارع:<span class="v"></span></div>
+   <div class="f">المركب المستخدم:<span class="v"></span></div>
+   <div class="row"><div class="f">تاريخ الرش:<span class="v"></span></div><div class="f">المتابعة:<span class="v"></span></div></div>
+  </div>
+ </div>
+ <div class="foot">⚠ برجاء عدم إزالة اليافطة أو رش الخط بأي مركب تاني لحد قراءة النتائج</div>
+ <div class="web"><div class="qr"><span><img src="qr.svg"></span><div>امسح<br>واعرف أكتر</div></div><div dir="ltr">www.greenappleai.com</div></div>
+</div></body></html>
