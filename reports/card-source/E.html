@@ -1,0 +1,39 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&display=swap" rel="stylesheet">
+<style>
+@page{size:297mm 210mm;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Cairo,sans-serif;background:#fff}
+.page{width:297mm;height:210mm;position:relative;display:flex;align-items:center;justify-content:center}
+.cut{position:absolute;width:281mm;height:198mm;clip-path:polygon(24mm 0,calc(100% - 24mm) 0,100% 24mm,100% 100%,0 100%,0 24mm);background:#c9c9c9}
+.sign{position:relative;width:280mm;height:197mm;clip-path:polygon(23.6mm 0,calc(100% - 23.6mm) 0,100% 23.6mm,100% 100%,0 100%,0 23.6mm);background:#fff;overflow:hidden;display:flex;flex-direction:column}
+.tab{position:absolute;top:9mm;right:50%;transform:translateX(50%);background:#E1192F;color:#fff;font-weight:900;font-size:22pt;padding:0 12mm;height:14mm;line-height:14mm;border-radius:2mm;letter-spacing:.3mm;box-shadow:0 1mm 0 #a50e20}
+.logo{flex:1;display:flex;align-items:center;justify-content:center;padding-top:16mm}
+.logo img{height:96mm}
+.band{background:repeating-linear-gradient(-45deg,rgba(255,255,255,.06) 0 6mm,transparent 6mm 12mm),linear-gradient(90deg,#1c8a30,#2DBE4A);color:#fff;padding:4mm 14mm 4mm;position:relative}
+.band:before{content:"";position:absolute;top:-3mm;left:0;right:0;height:3mm;background:#C8F04B}
+.big{display:flex;align-items:flex-end;gap:4mm;font-weight:900;font-size:30pt;height:20mm}
+.big .v{flex:1;border-bottom:.9mm solid rgba(255,255,255,.85);height:15mm}
+.row{display:flex;gap:8mm;margin-top:1mm}
+.f{flex:1;display:flex;align-items:flex-end;gap:2.5mm;font-weight:800;font-size:15pt;height:12mm}
+.f .v{flex:1;border-bottom:.6mm dashed rgba(255,255,255,.75);height:9mm}
+.strip{background:#0B3D18;color:#C8F04B;font-weight:900;font-size:15pt;display:flex;justify-content:space-between;align-items:center;padding:2mm 14mm;height:13mm}
+.strip span.w{color:#fff;font-size:12pt;font-weight:700}
+.hole{position:absolute;width:5mm;height:5mm;border-radius:50%;border:.4mm solid #bbb;left:50%;transform:translateX(-50%)}
+</style></head><body>
+<div class="page">
+ <div class="cut"></div>
+ <div class="sign">
+  <div class="tab">تجربة حقلية</div>
+  <div class="logo"><img src="logo_c.png" alt="Green Apple"></div>
+  <div class="band">
+   <div class="big">المركب:<span class="v"></span></div>
+   <div class="row">
+    <div class="f">كود التجربة:<span class="v"></span></div>
+    <div class="f">المزارع:<span class="v"></span></div>
+    <div class="f">تاريخ الرش:<span class="v"></span></div>
+   </div>
+  </div>
+  <div class="strip"><span>حملة الفراولة ٢٠٢٦ • شوف الفرق بعينك</span><span class="w" dir="ltr">www.greenappleai.com</span></div>
+ </div>
+</div></body></html>
