@@ -1,0 +1,51 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+@page{size:A5 landscape;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Cairo,sans-serif;color:#222}
+.card{width:210mm;height:148mm;position:relative;overflow:hidden;background:#fff;border:0;page-break-after:always;display:flex;flex-direction:column}
+.top{background:#229E37;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:4mm 8mm;height:30mm}
+.top .t1{font-size:25pt;font-weight:900;line-height:1.15}
+.top .t2{font-size:12pt;font-weight:600;opacity:.95}
+.logo{background:#fff;border-radius:4mm;padding:1.5mm 3mm;height:24mm;display:flex;align-items:center}
+.logo img{height:21mm}
+.band{background:#E8F5EA;border-bottom:1.2mm solid #229E37;display:flex;align-items:center;justify-content:space-between;padding:2.5mm 8mm}
+.band .prod{font-size:17pt;font-weight:900;color:#1a7a2b}
+.band .prod b{font-size:24pt;color:#229E37}
+.code{border:0.6mm solid #229E37;border-radius:2mm;padding:1mm 4mm;font-size:13pt;font-weight:700;background:#fff}
+.code span{display:inline-block;min-width:26mm;border-bottom:0.4mm dashed #999}
+.grid{flex:1;display:grid;grid-template-columns:1fr 1fr;column-gap:10mm;row-gap:0;padding:4mm 8mm 0}
+.f{display:flex;align-items:flex-end;gap:2mm;font-size:12.5pt;height:11.5mm}
+.f label{font-weight:700;color:#1a7a2b;white-space:nowrap}
+.f .v{flex:1;border-bottom:0.4mm dotted #777;height:7mm;font-weight:600;color:#000}
+.wide{grid-column:1 / span 2}
+.foot{display:flex;justify-content:space-between;align-items:center;background:#229E37;color:#fff;padding:2mm 8mm;font-size:10.5pt;font-weight:600;margin-top:auto}
+.warn{background:#FFF4E5;color:#8a4b00;border:0.4mm solid #f0b46a;border-radius:2mm;margin:2mm 8mm 3mm;padding:1.3mm 4mm;font-size:11pt;font-weight:700;text-align:center}
+.wm{position:absolute;left:-12mm;bottom:8mm;height:95mm;opacity:.06;pointer-events:none}
+</style></head><body>
+<div class="card">
+  <img class="wm" src="mark.png" alt="">
+  <div class="top">
+    <div><div class="t1">تجربة حقلية – خط معامل</div><div class="t2">حملة الفراولة ٢٠٢٦</div></div>
+    <div class="logo"><img src="logo_c.png" alt="Green Apple"></div>
+  </div>
+  <div class="band">
+    <div class="prod">المركب المستخدم: <b>يونايت</b></div>
+    <div class="code">كود التجربة: <span></span></div>
+  </div>
+  <div class="grid">
+    <div class="f"><label>اسم المزارع:</label><div class="v"></div></div>
+    <div class="f"><label>القرية / المركز:</label><div class="v"></div></div>
+    <div class="f"><label>رقم الخط المعامل:</label><div class="v"></div></div>
+    <div class="f"><label>الصنف:</label><div class="v"></div></div>
+    <div class="f"><label>تاريخ الرش:</label><div class="v"></div></div>
+    <div class="f"><label>عمر الزراعة:</label><div class="v"></div></div>
+    <div class="f"><label>المعدل / الجرعة:</label><div class="v"></div></div>
+    <div class="f"><label>ميعاد المتابعة:</label><div class="v"></div></div>
+    <div class="f wide"><label>المهندس المسؤول:</label><div class="v"></div><label>تليفون:</label><div class="v"></div></div>
+  </div>
+  <div class="warn">⚠ برجاء عدم إزالة الكارت أو رش الخط ده بأي مركب تاني لحد قراءة النتائج</div>
+  <div class="foot"><span>جرين أبل للاستثمار الزراعي</span><span dir="ltr">www.greenappleai.com</span></div>
+</div>
+</body></html>
