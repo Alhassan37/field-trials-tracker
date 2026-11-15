@@ -1,0 +1,55 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&display=swap" rel="stylesheet"><style>@page{size:210mm 297mm;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Cairo,sans-serif;background:#fff}
+:root{--g:#229E37;--dg:#0B3D18;--lime:#C8F04B;--red:#E1192F;--cream:#FFF8EC}
+.sheet{position:relative;overflow:hidden;page-break-after:always;background:var(--dg)}
+.hero{background:radial-gradient(120% 90% at 85% 10%,#2DBE4A 0,#229E37 35%,#0B3D18 85%)}
+.burst{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff;font-weight:900;background:var(--red);
+ clip-path:polygon(50% 0,61% 12%,75% 6%,79% 21%,94% 25%,88% 39%,100% 50%,88% 61%,94% 75%,79% 79%,75% 94%,61% 88%,50% 100%,39% 88%,25% 94%,21% 79%,6% 75%,12% 61%,0 50%,12% 39%,6% 25%,21% 21%,25% 6%,39% 12%);line-height:1.05}
+.logo{background:#fff;display:flex;align-items:center;justify-content:center}
+.logo img{display:block}
+.lime{color:var(--lime)}
+.fields{background:#fff;color:#0B3D18}
+.f{display:flex;align-items:flex-end;gap:2mm;font-weight:700}
+.f .v{flex:1;border-bottom:.5mm dashed #9bb9a2}
+.qr{background:#fff;display:flex;align-items:center;gap:3mm;color:#0B3D18;font-weight:800;line-height:1.15}
+.qr img{display:block}
+.stripes{position:absolute;inset:0;background:repeating-linear-gradient(-45deg,rgba(255,255,255,.05) 0 6mm,transparent 6mm 12mm);pointer-events:none}
+
+.a{width:210mm;height:297mm}
+.a .top{height:44mm;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 12mm;position:relative;z-index:2}
+.a .top img{height:34mm}
+.a .top .tag{background:var(--g);color:#fff;font-weight:900;font-size:17pt;padding:2mm 6mm;border-radius:20mm}
+.a .main{position:absolute;top:44mm;left:0;right:0;height:203mm;clip-path:polygon(0 4%,100% 0,100% 96%,0 100%)}
+.a .main .straw{position:absolute;left:-14mm;top:22mm;width:118mm;transform:rotate(-14deg);filter:drop-shadow(0 6mm 6mm rgba(0,0,0,.35))}
+.a .h1{position:absolute;right:12mm;top:22mm;color:#fff;font-weight:900;font-size:44pt;line-height:1.05;text-align:right;width:120mm;text-shadow:0 1mm 0 rgba(0,0,0,.25)}
+.a .prod{position:absolute;right:12mm;top:76mm;text-align:right}
+.a .prod small{display:block;color:#fff;font-weight:700;font-size:15pt;opacity:.9}
+.a .prod b{display:block;font-size:84pt;font-weight:900;line-height:1;color:var(--lime);text-shadow:0 1.5mm 0 rgba(0,0,0,.3)}
+.a .burst{width:52mm;height:52mm;left:14mm;top:140mm;font-size:17pt;transform:rotate(-10deg)}
+.a .fields{position:absolute;right:12mm;top:132mm;width:118mm;border-radius:5mm;padding:4mm 6mm;box-shadow:0 2mm 0 rgba(0,0,0,.2)}
+.a .f{font-size:14pt;height:11mm}
+.a .bottom{position:absolute;bottom:0;left:0;right:0;height:56mm;background:var(--dg)}
+.a .arrow{position:absolute;bottom:6mm;right:12mm;width:112mm;height:42mm;background:var(--lime);color:var(--dg);font-weight:900;font-size:27pt;display:flex;align-items:center;justify-content:center;padding-bottom:9mm;clip-path:polygon(0 0,100% 0,100% 62%,58% 62%,50% 100%,42% 62%,0 62%)}
+.a .arrow span{margin-top:-11mm}
+.a .qr{position:absolute;bottom:8mm;left:12mm;border-radius:3mm;padding:2.5mm;font-size:11pt}
+.a .qr img{width:24mm;height:24mm}
+</style></head><body>
+<div class="sheet a">
+ <div class="top"><img src="logo_c.png"><div class="tag">حملة الفراولة ٢٠٢٦</div></div>
+ <div class="main hero"><div class="stripes"></div>
+  <img class="straw" src="straw.svg">
+  <div class="h1">شوف الفرق<br>بعينك!</div>
+  <div class="prod"><small>الخط ده متعامل بـ</small><b>يونايت</b></div>
+  <div class="fields">
+   <div class="f">كود التجربة:<span class="v"></span></div>
+   <div class="f">تاريخ الرش:<span class="v"></span></div>
+   <div class="f">المزارع:<span class="v"></span></div>
+  </div>
+  <div class="burst">تجربة<br>حقلية<br>حيّة</div>
+ </div>
+ <div class="bottom">
+  <div class="arrow"><span>الخط المعامل</span></div>
+  <div class="qr"><img src="qr.svg"><div>امسح<br>واعرف<br>أكتر</div></div>
+ </div>
+</div></body></html>

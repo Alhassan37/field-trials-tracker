@@ -1,0 +1,43 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&display=swap" rel="stylesheet"><style>@page{size:210mm 148mm;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Cairo,sans-serif;background:#fff}
+:root{--g:#229E37;--dg:#0B3D18;--lime:#C8F04B;--red:#E1192F;--cream:#FFF8EC}
+.sheet{position:relative;overflow:hidden;page-break-after:always;background:var(--dg)}
+.hero{background:radial-gradient(120% 90% at 85% 10%,#2DBE4A 0,#229E37 35%,#0B3D18 85%)}
+.burst{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff;font-weight:900;background:var(--red);
+ clip-path:polygon(50% 0,61% 12%,75% 6%,79% 21%,94% 25%,88% 39%,100% 50%,88% 61%,94% 75%,79% 79%,75% 94%,61% 88%,50% 100%,39% 88%,25% 94%,21% 79%,6% 75%,12% 61%,0 50%,12% 39%,6% 25%,21% 21%,25% 6%,39% 12%);line-height:1.05}
+.logo{background:#fff;display:flex;align-items:center;justify-content:center}
+.logo img{display:block}
+.lime{color:var(--lime)}
+.fields{background:#fff;color:#0B3D18}
+.f{display:flex;align-items:flex-end;gap:2mm;font-weight:700}
+.f .v{flex:1;border-bottom:.5mm dashed #9bb9a2}
+.qr{background:#fff;display:flex;align-items:center;gap:3mm;color:#0B3D18;font-weight:800;line-height:1.15}
+.qr img{display:block}
+.stripes{position:absolute;inset:0;background:repeating-linear-gradient(-45deg,rgba(255,255,255,.05) 0 6mm,transparent 6mm 12mm);pointer-events:none}
+
+.b{width:210mm;height:148mm}
+.b .main{position:absolute;inset:0;background:linear-gradient(135deg,#5b6770,#2c343a)}
+.b .side{position:absolute;top:0;bottom:0;left:0;width:70mm;background:#fff;clip-path:polygon(0 0,100% 0,82% 100%,0 100%);display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;padding:7mm 0 7mm 7mm}
+.b .side img.l{width:44mm}
+.b .qr{padding:0;font-size:10pt} .b .qr img{width:19mm;height:19mm}
+.b .straw{position:absolute;left:32mm;top:38mm;width:66mm;transform:rotate(-16deg);filter:drop-shadow(0 4mm 4mm rgba(0,0,0,.35));z-index:3}
+.b .tag{position:absolute;right:9mm;top:7mm;background:#fff;color:var(--g);font-weight:900;font-size:12pt;padding:1mm 5mm;border-radius:20mm}
+.b .h1{position:absolute;right:9mm;top:19mm;color:#fff;font-weight:900;font-size:31pt;line-height:1.1}
+.b .prod{position:absolute;right:9mm;top:38mm;text-align:right}
+.b .prod small{display:block;color:#fff;font-weight:700;font-size:13pt;opacity:.9}
+.b .prod b{display:block;font-size:44pt;font-weight:900;line-height:1.05;color:#fff;text-shadow:0 1mm 0 rgba(0,0,0,.3)}
+.b .fields{position:absolute;right:9mm;bottom:18mm;width:112mm;border-radius:4mm;padding:2.5mm 5mm;display:grid;grid-template-columns:1fr 1fr;column-gap:5mm}
+.b .f{font-size:11.5pt;height:9mm} .b .f.w{grid-column:1/3}
+.b .note{position:absolute;right:9mm;bottom:6mm;width:112mm;color:#fff;font-weight:700;font-size:9.5pt;opacity:.92}
+.b .burst{width:32mm;height:32mm;left:76mm;top:98mm;font-size:11pt;transform:rotate(-12deg);z-index:4}
+</style></head><body>
+<div class="sheet b"><div class="main hero" style="background:linear-gradient(135deg,#5b6770,#2c343a)"><div class="stripes"></div></div>
+ <div class="side"><img class="l" src="logo_c.png"><div class="qr"><img src="qr.svg"><div>امسح<br>واعرف أكتر</div></div></div>
+ 
+ <img class="straw" src="straw.svg" style="filter:grayscale(1) brightness(1.6);opacity:.25"><div class="tag">حملة الفراولة ٢٠٢٦</div>
+ <div class="h1">خط المقارنة</div>
+ <div class="prod"><small>الخط ده</small><b>بدون معاملة</b></div>
+ <div class="fields"><div class="f">كود التجربة:<span class="v"></span></div><div class="f">تاريخ الرش:<span class="v"></span></div><div class="f w">المزارع:<span class="v"></span></div></div>
+ <div class="note">⚠ قارن الخط ده بالخط المعامل بيونايت جنبه</div>
+</div></body></html>
